@@ -1,37 +1,58 @@
 import streamlit as st
+from supabase import create_client, Client
+import jwt
 import json
 import time
-import jwt
-import datetime #
-from supabase import create_client, Client
+import uuid
 
-# --- Configuración visual para celulares ---
-st.set_page_config(page_title="Lealtad Marca Pádel", page_icon="🎾", layout="centered")
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Marca Pádel Premier Club", page_icon="🎾")
 
-# --- Función que genera la llave de Google ---
-def generar_enlace_wallet(cliente_uuid, nombre_cliente):
-    # Tus identificadores oficiales
+# --- 2. CONEXIÓN A SUPABASE ---
+try:
+    supabase_url = st.secrets["SUPABASE_URL"]
+    supabase_key = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(supabase_url, supabase_key)
+except Exception as e:
+    st.error("Error de configuración de secretos de Supabase.")
+
+# --- 3. FUNCIÓN DE GOOGLE WALLET ---
+def generar_enlace_wallet(cliente_uuid, nombre_cliente, object_id):
     ISSUER_ID = "BCR2DN6D7KSY5MZ2"
     CLASS_ID = "SellosMPPC"
-    OBJECT_ID = f"{ISSUER_ID}.{cliente_uuid}"
     
-    # Leemos la credencial de forma segura desde los Secrets de Streamlit
+    CLASS_FULL_ID = f"{ISSUER_ID}.{CLASS_ID}"
+    
+    # Limpiamos el UUID para el accountId (max 12 caracteres sin guiones)
+    clean_uuid = str(cliente_uuid).replace('-', '_')
+    
+    # Cargamos credenciales y forzamos la lectura correcta de saltos de línea
     credentials = json.loads(st.secrets["credenciales_google"])
-    
+    private_key = credentials["private_key"]
+    if "\\n" in private_key:
+        private_key = private_key.replace("\\n", "\n")
+        
+    # Estructura oficial y completa requerida por Google para pases activos
     loyalty_object = {
-        "id": OBJECT_ID,
-        "classId": f"{ISSUER_ID}.{CLASS_ID}",
+        "id": object_id,
+        "classId": CLASS_FULL_ID,
         "state": "ACTIVE",
-        "accountId": cliente_uuid[:8].upper(),
+        "accountId": clean_uuid[:12],
         "accountName": nombre_cliente,
-        "textModulesData": [
-            {
-                "header": "Sellos Acumulados",
-                "body": "0 / 10" 
+        "barcode": {
+            "type": "QR_CODE",
+            "value": str(cliente_uuid),
+            "alternateText": nombre_cliente
+        },
+        "loyaltyPoints": {
+            "label": "Sellos",
+            "balance": {
+                "string": "0 / 10"
             }
-        ]
+        }
     }
     
+    # Reclamaciones (Claims) del JWT
     claims = {
         "iss": credentials["client_email"],
         "aud": "google",
@@ -42,87 +63,68 @@ def generar_enlace_wallet(cliente_uuid, nombre_cliente):
         }
     }
     
-    token = jwt.encode(claims, credentials["private_key"], algorithm="RS256")
+    # Generación y firma del Token
+    token = jwt.encode(claims, private_key, algorithm="RS256")
+    
+    # Compatibilidad para versiones anteriores de PyJWT
+    if isinstance(token, bytes):
+        token = token.decode('utf-8')
+        
     return f"https://pay.google.com/gp/v/save/{token}"
 
-# --- Interfaz de Usuario (El Portal) ---
-st.title("¡Únete al Premier Club! 🎾")
-st.markdown("Regístrate para obtener tu tarjeta digital, acumular sellos en cada visita y ganar descuentos exclusivos en tus rentas. Si tienes algún problema con tu registro, Ale o Jenny en recepción con gusto te apoyarán.")
+# --- 4. INTERFAZ DE USUARIO (STREAMLIT) ---
+st.title("🎾 Marca Pádel Premier Club")
+st.subheader("Regístrate para obtener tu tarjeta de sellos digital")
+st.write("Acumula 10 sellos en tus rentas de pista y obtén un descuento especial.")
 
-# Creamos el formulario de registro
 with st.form("registro_form"):
-    st.subheader("Tus Datos Generales")
-    nombre = st.text_input("Nombre completo*")
-    telefono = st.text_input("Teléfono (WhatsApp)*")
-    email = st.text_input("Correo electrónico*")
-    fecha_nacimiento = st.date_input(
-        "Fecha de nacimiento", 
-        min_value=datetime.date(1930, 1, 1), 
-        max_value=datetime.date.today(),
-        value=None
-    )
-    genero = st.selectbox("Género", ["Selecciona una opción", "Masculino", "Femenino", "Prefiero no decirlo"])
+    nombre = st.text_input("Nombre completo")
+    correo = st.text_input("Correo electrónico")
+    telefono = st.text_input("Teléfono (Opcional)")
     
-    st.markdown("---")
-    st.subheader("Perfil de Jugador")
-    st.caption("Conocer tu nivel y posición nos ayudará a armar mejores cuadros para torneos y clínicas con nuestros coaches (Isaac, Manu, Dana y Edu).")
-    
-    categoria = st.selectbox("Categoría de Juego", ["No sé mi nivel", "Principiante", "6ta", "5ta", "4ta", "3ra", "2da", "1ra"])
-    posicion = st.selectbox("Posición favorita", ["Aún no lo sé", "Drive (Derecha)", "Revés (Izquierda)", "Ambas"])
-    
-    # Botón de envío
-    submit_button = st.form_submit_button("Generar mi Tarjeta Digital", use_container_width=True)
+    submit_btn = st.form_submit_button("Generar mi tarjeta", use_container_width=True)
 
-# Lógica cuando el jugador presiona el botón
-if submit_button:
-    if nombre and email and telefono:
-        try:
-            # 1. Conectarnos a Supabase usando los Secrets
-            supabase_url = st.secrets["SUPABASE_URL"]
-            supabase_key = st.secrets["SUPABASE_KEY"]
-            supabase: Client = create_client(supabase_url, supabase_key)
+    if submit_btn:
+        if nombre and correo:
+            # Generamos un ID único para el cliente
+            cliente_uuid = str(uuid.uuid4())
+            # Creamos el ID del objeto de Wallet para guardarlo en la base de datos
+            wallet_object_id = f"BCR2DN6D7KSY5MZ2.{cliente_uuid.replace('-', '_')}"
             
-            # Formatear datos opcionales
-            genero_final = genero if genero != "Selecciona una opción" else None
-            categoria_final = categoria if categoria != "No sé mi nivel" else None
-            posicion_final = posicion if posicion != "Aún no lo sé" else None
-            
-            # 2. Guardar al jugador en tu tabla
-            respuesta = supabase.table("clientes_wallet").insert({
-                "nombre_completo": nombre,
-                "telefono": telefono,
-                "email": email,
-                "saldo": 0,
-                "genero": genero_final,
-                "fecha_nacimiento": str(fecha_nacimiento),
-                "categoria": categoria_final,
-                "posicion": posicion_final
-            }).execute()
-            
-            # Extraer el ID único que Supabase le asignó
-            nuevo_uuid = respuesta.data[0]['id']
-            
-            # 3. Fabricar su enlace de Google Wallet
-            wallet_link = generar_enlace_wallet(nuevo_uuid, nombre)
-            
-            # 4. Actualizar el registro en Supabase para vincular su tarjeta de Google
-            object_id = f"BCR2DN6D7KSY5MZ2.{nuevo_uuid}"
-            supabase.table("clientes_wallet").update({"wallet_object_id": object_id}).eq("id", nuevo_uuid).execute()
-
-            # 5. Mostrar el botón final de descarga
-            st.success("¡Registro exitoso! Descarga tu tarjeta aquí abajo:")
-            st.markdown(
-                f"""
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="{wallet_link}" target="_blank">
-                        <img src="https://developers.google.com/wallet/images/es-419_add_to_google_wallet_add-wallet-badge.png" alt="Añadir a Google Wallet" width="250">
-                    </a>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-            
-        except Exception as e:
-            st.error(f"Error técnico detallado para revisión: {e}")
-    else:
-        st.warning("⚠️ El nombre, teléfono y correo son obligatorios.")
+            try:
+                # 4.1 Guardar en Supabase (Usando los nombres exactos de tus columnas)
+                datos_insertar = {
+                    "id": cliente_uuid,
+                    "nombre_completo": nombre,
+                    "email": correo,
+                    "telefono": telefono,
+                    "wallet_object_id": wallet_object_id
+                }
+                
+                respuesta = supabase.table("clientes_wallet").insert(datos_insertar).execute()
+                
+                # 4.2 Generar enlace de Wallet
+                wallet_link = generar_enlace_wallet(cliente_uuid, nombre, wallet_object_id)
+                
+                # 4.3 Mostrar mensaje de éxito y botón
+                st.success(f"¡Registro exitoso para {nombre}! Descarga tu tarjeta aquí abajo:")
+                
+                # Botón oficial de Google
+                st.markdown(
+                    f"""
+                    <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+                        <a href="{wallet_link}" target="_blank">
+                            <img src="https://developers.google.com/wallet/images/es-419_add_to_google_wallet_add-wallet-badge.png" alt="Añadir a Google Wallet" width="250">
+                        </a>
+                    </div>
+                    """, 
+                    unsafe_allow_html=True
+                )
+                
+                # Enlace alternativo en texto
+                st.markdown(f"<div style='text-align: center;'><a href='{wallet_link}' target='_blank'>Si la imagen no carga, haz clic aquí para abrir Wallet</a></div>", unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"Hubo un error de conexión con la base de datos: {e}")
+        else:
+            st.warning("Por favor, llena los campos de nombre completo y correo electrónico.")
