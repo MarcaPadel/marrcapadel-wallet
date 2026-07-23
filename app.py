@@ -19,7 +19,7 @@ except Exception as e:
 
 # --- 3. FUNCIÓN DE GOOGLE WALLET ---
 def generar_enlace_wallet(cliente_uuid, nombre_cliente, object_id):
-    ISSUER_ID = "BCR2DN6D7KSY5MZ2"
+    ISSUER_ID = "3388000000023162682"
     CLASS_ID = "SellosMPPC"
     
     CLASS_FULL_ID = f"{ISSUER_ID}.{CLASS_ID}"
@@ -103,7 +103,7 @@ with st.form("registro_form"):
             # Generamos un ID único para el cliente
             cliente_uuid = str(uuid.uuid4())
             # Creamos el ID del objeto de Wallet para guardarlo en la base de datos
-            wallet_object_id = f"BCR2DN6D7KSY5MZ2.{cliente_uuid.replace('-', '_')}"
+            wallet_object_id = f"3388000000023162682.{cliente_uuid.replace('-', '_')}"
             
             try:
                 # 4.1 Guardar en Supabase con TODOS los campos
