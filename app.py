@@ -123,6 +123,6 @@ if submit_button:
             )
             
         except Exception as e:
-            st.error("Ocurrió un error en la conexión o este correo ya está registrado. Por favor, verifica tus datos.")
+            st.error(f"Error técnico detallado para revisión: {e}")
     else:
         st.warning("⚠️ El nombre, teléfono y correo son obligatorios.")
