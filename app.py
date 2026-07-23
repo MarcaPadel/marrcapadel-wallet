@@ -21,7 +21,7 @@ def generar_enlace_wallet(cliente_uuid, nombre_cliente):
     loyalty_object = {
         "id": OBJECT_ID,
         "classId": f"{ISSUER_ID}.{CLASS_ID}",
-        "state": "COMPLETED",
+        "state": "APPROVED",
         "accountId": cliente_uuid[:8].upper(),
         "accountName": nombre_cliente,
         "textModulesData": [
