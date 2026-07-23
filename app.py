@@ -46,31 +46,51 @@ def generar_enlace_wallet(cliente_uuid, nombre_cliente):
 
 # --- Interfaz de Usuario (El Portal) ---
 st.title("¡Únete al Premier Club! 🎾")
-st.markdown("Regístrate para obtener tu tarjeta digital, acumular sellos en cada visita y ganar descuentos exclusivos en tus rentas de pistas.")
+st.markdown("Regístrate para obtener tu tarjeta digital, acumular sellos en cada visita y ganar descuentos exclusivos en tus rentas. Si tienes algún problema con tu registro, Ale o Jenny en recepción con gusto te apoyarán.")
 
 # Creamos el formulario de registro
 with st.form("registro_form"):
-    nombre = st.text_input("Nombre completo")
-    telefono = st.text_input("Teléfono (WhatsApp)")
-    email = st.text_input("Correo electrónico")
+    st.subheader("Tus Datos Generales")
+    nombre = st.text_input("Nombre completo*")
+    telefono = st.text_input("Teléfono (WhatsApp)*")
+    email = st.text_input("Correo electrónico*")
+    fecha_nacimiento = st.date_input("Fecha de nacimiento", min_value=None)
+    genero = st.selectbox("Género", ["Selecciona una opción", "Masculino", "Femenino", "Prefiero no decirlo"])
     
+    st.markdown("---")
+    st.subheader("Perfil de Jugador")
+    st.caption("Conocer tu nivel y posición nos ayudará a armar mejores cuadros para torneos y clínicas con nuestros coaches (Isaac, Manu, Dana y Edu).")
+    
+    categoria = st.selectbox("Categoría de Juego", ["No sé mi nivel", "Principiante", "6ta", "5ta", "4ta", "3ra", "2da", "1ra"])
+    posicion = st.selectbox("Posición favorita", ["Aún no lo sé", "Drive (Derecha)", "Revés (Izquierda)", "Ambas"])
+    
+    # Botón de envío
     submit_button = st.form_submit_button("Generar mi Tarjeta Digital", use_container_width=True)
 
 # Lógica cuando el jugador presiona el botón
 if submit_button:
-    if nombre and email:
+    if nombre and email and telefono:
         try:
             # 1. Conectarnos a Supabase usando los Secrets
             supabase_url = st.secrets["SUPABASE_URL"]
             supabase_key = st.secrets["SUPABASE_KEY"]
             supabase: Client = create_client(supabase_url, supabase_key)
             
+            # Formatear datos opcionales
+            genero_final = genero if genero != "Selecciona una opción" else None
+            categoria_final = categoria if categoria != "No sé mi nivel" else None
+            posicion_final = posicion if posicion != "Aún no lo sé" else None
+            
             # 2. Guardar al jugador en tu tabla
             respuesta = supabase.table("clientes_wallet").insert({
                 "nombre_completo": nombre,
                 "telefono": telefono,
                 "email": email,
-                "saldo": 0
+                "saldo": 0,
+                "genero": genero_final,
+                "fecha_nacimiento": str(fecha_nacimiento),
+                "categoria": categoria_final,
+                "posicion": posicion_final
             }).execute()
             
             # Extraer el ID único que Supabase le asignó
@@ -87,14 +107,16 @@ if submit_button:
             st.success("¡Registro exitoso! Descarga tu tarjeta aquí abajo:")
             st.markdown(
                 f"""
-                <a href="{wallet_link}" target="_blank">
-                    <img src="https://developers.google.com/wallet/images/es-419_add_to_google_wallet_add-wallet-badge.png" alt="Añadir a Google Wallet" width="250">
-                </a>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{wallet_link}" target="_blank">
+                        <img src="https://developers.google.com/wallet/images/es-419_add_to_google_wallet_add-wallet-badge.png" alt="Añadir a Google Wallet" width="250">
+                    </a>
+                </div>
                 """, 
                 unsafe_allow_html=True
             )
             
         except Exception as e:
-            st.error("Ocurrió un error o este correo ya tiene una tarjeta registrada. Por favor, verifica tus datos.")
+            st.error("Ocurrió un error en la conexión o este correo ya está registrado. Por favor, verifica tus datos.")
     else:
-        st.warning("⚠️ El nombre y el correo son obligatorios.")
+        st.warning("⚠️ El nombre, teléfono y correo son obligatorios.")
