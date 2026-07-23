@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import time
 import jwt
+import datetime # <-- Agrega esta línea
 from supabase import create_client, Client
 
 # --- Configuración visual para celulares ---
