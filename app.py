@@ -4,6 +4,7 @@ import jwt
 import json
 import time
 import uuid
+import datetime
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Marca Pádel Premier Club", page_icon="🎾")
@@ -78,9 +79,22 @@ st.subheader("Regístrate para obtener tu tarjeta de sellos digital")
 st.write("Acumula 10 sellos en tus rentas de pista y obtén un descuento especial.")
 
 with st.form("registro_form"):
-    nombre = st.text_input("Nombre completo")
-    correo = st.text_input("Correo electrónico")
+    nombre = st.text_input("Nombre completo *")
+    correo = st.text_input("Correo electrónico *")
     telefono = st.text_input("Teléfono (Opcional)")
+    
+    # Agrupamos los campos adicionales en columnas para mejor diseño
+    col1, col2 = st.columns(2)
+    with col1:
+        genero = st.selectbox("Género", ["Masculino", "Femenino", "Otro", "Prefiero no decirlo"])
+        # Fecha por defecto hace 25 años para facilitar la navegación en el calendario
+        fecha_nacimiento = st.date_input("Fecha de nacimiento", 
+                                         value=datetime.date(1999, 1, 1),
+                                         min_value=datetime.date(1940, 1, 1),
+                                         max_value=datetime.date.today())
+    with col2:
+        categoria = st.selectbox("Categoría", ["1ra", "2da", "3ra", "4ta", "5ta", "6ta", "Iniciación"])
+        posicion = st.selectbox("Posición de juego", ["Drive", "Revés", "Ambos"])
     
     submit_btn = st.form_submit_button("Generar mi tarjeta", use_container_width=True)
 
@@ -92,12 +106,16 @@ with st.form("registro_form"):
             wallet_object_id = f"BCR2DN6D7KSY5MZ2.{cliente_uuid.replace('-', '_')}"
             
             try:
-                # 4.1 Guardar en Supabase (Usando los nombres exactos de tus columnas)
+                # 4.1 Guardar en Supabase con TODOS los campos
                 datos_insertar = {
                     "id": cliente_uuid,
                     "nombre_completo": nombre,
                     "email": correo,
                     "telefono": telefono,
+                    "genero": genero,
+                    "fecha_nacimiento": fecha_nacimiento.strftime("%Y-%m-%d"), # Convertimos a texto para SQL
+                    "categoria": categoria,
+                    "posicion": posicion,
                     "wallet_object_id": wallet_object_id
                 }
                 
@@ -127,4 +145,4 @@ with st.form("registro_form"):
             except Exception as e:
                 st.error(f"Hubo un error de conexión con la base de datos: {e}")
         else:
-            st.warning("Por favor, llena los campos de nombre completo y correo electrónico.")
+            st.warning("Por favor, llena los campos obligatorios (Nombre y Correo).")
