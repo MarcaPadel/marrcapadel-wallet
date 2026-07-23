@@ -55,7 +55,12 @@ with st.form("registro_form"):
     nombre = st.text_input("Nombre completo*")
     telefono = st.text_input("Teléfono (WhatsApp)*")
     email = st.text_input("Correo electrónico*")
-    fecha_nacimiento = st.date_input("Fecha de nacimiento", min_value=None)
+    fecha_nacimiento = st.date_input(
+        "Fecha de nacimiento", 
+        min_value=datetime.date(1930, 1, 1), 
+        max_value=datetime.date.today(),
+        value=None
+    )
     genero = st.selectbox("Género", ["Selecciona una opción", "Masculino", "Femenino", "Prefiero no decirlo"])
     
     st.markdown("---")
