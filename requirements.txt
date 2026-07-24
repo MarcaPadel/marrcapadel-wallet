@@ -4,3 +4,5 @@ PyJWT
 opencv-python-headless
 numpy
 Pillow
+requests
+google-auth
