@@ -1,4 +1,6 @@
 streamlit
 supabase
 PyJWT
-cryptography
+opencv-python-headless
+numpy
+Pillow
