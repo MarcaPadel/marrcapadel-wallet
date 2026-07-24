@@ -17,10 +17,9 @@ try:
 except Exception as e:
     st.error("Error de configuración de Supabase.")
 
-# --- NUEVA FUNCIÓN PARA AVISAR A GOOGLE ---
+# --- NUEVA FUNCIÓN PARA AVISAR A GOOGLE (CON DETECTOR DE ERRORES) ---
 def actualizar_tarjeta_google(object_id, nuevos_sellos):
     try:
-        # 1. Preparar credenciales
         cred_dict = json.loads(st.secrets["credenciales_google"])
         if "\\n" in cred_dict["private_key"]:
             cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
@@ -30,12 +29,10 @@ def actualizar_tarjeta_google(object_id, nuevos_sellos):
             scopes=['https://www.googleapis.com/auth/wallet_object.issuer']
         )
         
-        # 2. Obtener Token de Acceso
         request = google.auth.transport.requests.Request()
         credentials.refresh(request)
         token = credentials.token
         
-        # 3. Preparar la llamada a la API
         url = f"https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/{object_id}"
         nueva_imagen = f"https://cfsrslqamambagahfzzv.supabase.co/storage/v1/object/public/wallet-assets/sellos_{nuevos_sellos}.png"
         
@@ -44,7 +41,6 @@ def actualizar_tarjeta_google(object_id, nuevos_sellos):
             "Content-Type": "application/json"
         }
         
-        # 4. Enviar solo los datos que queremos cambiar (PATCH)
         payload = {
             "heroImage": {
                 "sourceUri": {
@@ -66,10 +62,14 @@ def actualizar_tarjeta_google(object_id, nuevos_sellos):
         }
         
         respuesta = requests.patch(url, headers=headers, json=payload)
-        return respuesta.status_code == 200
+        
+        if respuesta.status_code == 200:
+            return True, "OK"
+        else:
+            return False, f"Error {respuesta.status_code}: {respuesta.text}"
+            
     except Exception as e:
-        print(e)
-        return False
+        return False, str(e)
 
 # --- INTERFAZ DE ESCÁNER ---
 st.title("📲 Escáner de Visitas")
@@ -110,12 +110,14 @@ if foto is not None:
                         
                         # 2. AVISAR A GOOGLE WALLET
                         with st.spinner("Actualizando pase en el celular del jugador..."):
-                            exito_google = actualizar_tarjeta_google(wallet_object_id, nuevo_saldo)
+                            exito_google, mensaje_error = actualizar_tarjeta_google(wallet_object_id, nuevo_saldo)
                         
                         if exito_google:
                             st.success(f"¡Listo! {nombre_jugador} ahora tiene {nuevo_saldo} sellos y su Google Wallet ha sido actualizado.")
                         else:
-                            st.warning(f"Sello guardado en base de datos ({nuevo_saldo}/10), pero hubo un retraso actualizando Google Wallet.")
+                            st.warning(f"Sello guardado en base de datos ({nuevo_saldo}/10), pero hubo un error actualizando Google Wallet.")
+                            # AQUÍ ESTÁ LA MAGIA: Nos mostrará el error exacto
+                            st.error(f"Detalle técnico para Google: {mensaje_error}")
                             
                 else:
                     st.info("🎉 ¡Tarjeta completada! Premio listo para ser canjeado.")
