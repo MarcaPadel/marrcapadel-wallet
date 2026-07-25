@@ -134,7 +134,8 @@ with st.form("registro_form"):
                     "fecha_nacimiento": fecha_nacimiento.strftime("%Y-%m-%d"), # Convertimos a texto para SQL
                     "categoria": categoria,
                     "posicion": posicion,
-                    "wallet_object_id": wallet_object_id
+                    "wallet_object_id": wallet_object_id,
+                    "saldo": 0 # Restablecido para conectar con la app de recepción
                 }
                 
                 respuesta = supabase.table("clientes_wallet").insert(datos_insertar).execute()
@@ -145,20 +146,53 @@ with st.form("registro_form"):
                 # 4.3 Mostrar mensaje de éxito y botón
                 st.success(f"¡Registro exitoso para {nombre}! Descarga tu tarjeta aquí abajo:")
                 
-                # Botón oficial de Google
+                # Botón oficial programado con CSS (Diseño Premier)
                 st.markdown(
                     f"""
-                    <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
-                        <a href="{wallet_link}" target="_blank">
-                            <img src="https://developers.google.com/wallet/images/es-419_add_to_google_wallet_add-wallet-badge.png" alt="Añadir a Google Wallet" width="250">
+                    <style>
+                    .btn-premium {{
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        background-color: #1E1E1E;
+                        color: #FFFFFF !important;
+                        text-decoration: none;
+                        padding: 14px 28px;
+                        border-radius: 30px;
+                        font-family: 'Helvetica Neue', Arial, sans-serif;
+                        font-size: 16px;
+                        font-weight: 600;
+                        border: 2px solid #C5A059;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+                        margin: 20px auto;
+                    }}
+                    .btn-premium:hover {{
+                        background-color: #C5A059;
+                        color: #000000 !important;
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 15px rgba(197, 160, 89, 0.4);
+                    }}
+                    .wallet-icon {{
+                        width: 24px;
+                        height: 24px;
+                        margin-right: 12px;
+                        filter: invert(1);
+                    }}
+                    .btn-premium:hover .wallet-icon {{
+                        filter: invert(0);
+                    }}
+                    </style>
+                    
+                    <div style="text-align: center;">
+                        <a href="{wallet_link}" target="_blank" class="btn-premium">
+                            <img src="https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/wallet/default/24px.svg" class="wallet-icon">
+                            Añadir a Google Wallet
                         </a>
                     </div>
                     """, 
                     unsafe_allow_html=True
                 )
-                
-                # Enlace alternativo en texto
-                st.markdown(f"<div style='text-align: center;'><a href='{wallet_link}' target='_blank'>Si la imagen no carga, haz clic aquí para abrir Wallet</a></div>", unsafe_allow_html=True)
                 
             except Exception as e:
                 st.error(f"Hubo un error de conexión con la base de datos: {e}")
