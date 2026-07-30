@@ -101,26 +101,33 @@ if foto is not None:
                 st.subheader(f"🎾 {nombre_jugador}")
                 st.write(f"**Sellos actuales:** {saldo_actual} / 10")
                 
+                # ── LÓGICA DE CICLO INFINITO (RESETEO) ──
                 if saldo_actual < 10:
-                    if st.button("➕ Sumar 1 Sello", type="primary", use_container_width=True):
-                        nuevo_saldo = saldo_actual + 1
-                        
-                        # 1. Actualizar Supabase
-                        supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", data).execute()
-                        
-                        # 2. AVISAR A GOOGLE WALLET
-                        with st.spinner("Actualizando pase en el celular del jugador..."):
-                            exito_google, mensaje_error = actualizar_tarjeta_google(wallet_object_id, nuevo_saldo)
-                        
-                        if exito_google:
-                            st.success(f"¡Listo! {nombre_jugador} ahora tiene {nuevo_saldo} sellos y su Google Wallet ha sido actualizado.")
-                        else:
-                            st.warning(f"Sello guardado en base de datos ({nuevo_saldo}/10), pero hubo un error actualizando Google Wallet.")
-                            # AQUÍ ESTÁ LA MAGIA: Nos mostrará el error exacto
-                            st.error(f"Detalle técnico para Google: {mensaje_error}")
-                            
+                    texto_boton = "➕ Sumar 1 Sello"
+                    nuevo_saldo = saldo_actual + 1
+                    mensaje_exito = f"¡Listo! {nombre_jugador} ahora tiene {nuevo_saldo} sellos y su Google Wallet ha sido actualizado."
                 else:
-                    st.info("🎉 ¡Tarjeta completada! Premio listo para ser canjeado.")
+                    # Si ya tiene 10 (o por error más de 10), el siguiente escaneo reinicia la tarjeta a 1
+                    st.info("🎉 Esta tarjeta ya estaba llena. Al escanear ahora, se canjeará el premio y se reiniciará el conteo.")
+                    texto_boton = "🎁 Canjear Premio y Reiniciar (Sumar 1er Sello)"
+                    nuevo_saldo = 1
+                    mensaje_exito = f"¡Premio canjeado! {nombre_jugador} ha iniciado una nueva tarjeta con {nuevo_saldo} sello."
+
+                if st.button(texto_boton, type="primary", use_container_width=True):
+                    
+                    # 1. Actualizar Supabase
+                    supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", data).execute()
+                    
+                    # 2. AVISAR A GOOGLE WALLET
+                    with st.spinner("Actualizando pase en el celular del jugador..."):
+                        exito_google, mensaje_error = actualizar_tarjeta_google(wallet_object_id, nuevo_saldo)
+                    
+                    if exito_google:
+                        st.success(mensaje_exito)
+                    else:
+                        st.warning(f"Sello guardado en base de datos ({nuevo_saldo}/10), pero hubo un error actualizando Google Wallet.")
+                        st.error(f"Detalle técnico para Google: {mensaje_error}")
+                        
             else:
                 st.error("El código no corresponde a ningún jugador registrado.")
                 
