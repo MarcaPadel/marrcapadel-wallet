@@ -24,15 +24,30 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # Usamos tu Template ID verificado
     payload = {
         "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "QR",
-        "barcodeAltText": "Muestra en recepción para sumar sello",
+        "barcodeAltText": "Muestra este código en recepción",
+        "logoText": "Marca Pádel Premier",
         "dynamicData": {
             "jugador": nombre_cliente,
-            "sellos": "0 / 10"
+            "sellos": "0 / 10",
+            "title": "Tarjeta de Lealtad",
+            "primaryFields": [
+                {
+                    "key": "jugador",
+                    "label": "JUGADOR",
+                    "value": nombre_cliente
+                }
+            ],
+            "secondaryFields": [
+                {
+                    "key": "sellos",
+                    "label": "SELLOS",
+                    "value": "0 / 10"
+                }
+            ]
         }
     }
     
