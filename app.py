@@ -24,12 +24,11 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # PAYLOAD LIMPIO: 
-    # Solo mandamos el ID de tu plantilla y las 3 variables que cambian por usuario.
-    # El servidor de WalletWallet usará tu diseño visual automáticamente.
+    # PAYLOAD DEFINITIVO CON AZTEC
     payload = {
         "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
-        "barcodeValue": str(cliente_uuid), # Sobreescribe el "MEMBER-123" de tu diseño
+        "barcodeValue": str(cliente_uuid),
+        "barcodeFormat": "Aztec",  # <--- Agregamos esto explícitamente como Aztec
         "dynamicData": {
             "jugador": nombre_cliente,
             "sellos": "0 / 10"
@@ -48,7 +47,6 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         else:
             raise Exception(f"Falta shareUrl en la respuesta. Datos: {datos}")
     else:
-        # Imprimir la respuesta exacta de WalletWallet en rojo para debugguear
         raise Exception(f"Error {respuesta.status_code} de WalletWallet: {respuesta.text}")
 
 # --- 4. FUNCIÓN PARA EL BOTÓN VISUAL ---
