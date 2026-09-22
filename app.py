@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA ---
+# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA (DISEÑO EXPLÍCITO) ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,17 +24,38 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # Payload limpio con Template, Aztec e Imagen Inicial (Sello 0)
+    # PAYLOAD COMPLETO DE DISEÑO (Funciona para Apple y Google Wallet)
     payload = {
-        "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
+        "style": "storeCard",          # Formato oficial de tarjeta de lealtad
+        "backgroundColor": "#171717",  # Fondo oscuro
+        "foregroundColor": "#C5A059",  # Textos en dorado
+        "labelColor": "#FFFFFF",       # Títulos en blanco
+        
+        "logoText": "Marca Pádel",
+        "organizationName": "Marca Pádel Premier Club",
+        "description": "Tarjeta de Lealtad",
+        
+        # Imagen ancha de fondo (El inicio, sello 0)
+        "stripURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
+        
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "Aztec",
-        "logoText": "Marca Pádel Premier Club",
-        "heroImage": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
-        "dynamicData": {
-            "jugador": nombre_cliente,
-            "sellos": "0 / 10"
-        }
+        "barcodeAltText": "Muestra este código en recepción",
+        
+        "primaryFields": [
+            {
+                "key": "jugador",
+                "label": "JUGADOR",
+                "value": nombre_cliente
+            }
+        ],
+        "secondaryFields": [
+            {
+                "key": "sellos",
+                "label": "SELLOS",
+                "value": "0 / 10"
+            }
+        ]
     }
     
     respuesta = requests.post(url_api, headers=headers, json=payload)
