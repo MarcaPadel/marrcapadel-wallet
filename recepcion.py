@@ -26,13 +26,9 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
         }
         
         payload = {
-            "secondaryFields": [
-                {
-                    "key": "sellos",
-                    "label": "SELLOS",
-                    "value": f"{nuevos_sellos} / 10" 
-                }
-            ]
+            "dynamicData": {
+                "sellos": f"{nuevos_sellos} / 10" 
+            }
         }
         
         respuesta = requests.put(url_api, headers=headers, json=payload)
@@ -62,7 +58,6 @@ if foto is not None:
     if data:
         st.success("✅ ¡Código QR leído!")
         try:
-            # data contiene el cliente_uuid
             respuesta = supabase.table("clientes_wallet").select("*").eq("id", data).execute()
             cliente = respuesta.data
             
@@ -76,7 +71,6 @@ if foto is not None:
                 st.subheader(f"🎾 {nombre_jugador}")
                 st.write(f"**Sellos actuales:** {saldo_actual} / 10")
                 
-                # ── LÓGICA DE SELLOS ──
                 if saldo_actual < 10:
                     texto_boton = "➕ Sumar 1 Sello"
                     nuevo_saldo = saldo_actual + 1
@@ -88,11 +82,10 @@ if foto is not None:
                     mensaje_exito = f"¡Premio canjeado! Se inició una nueva tarjeta con {nuevo_saldo} sello."
 
                 if st.button(texto_boton, type="primary", use_container_width=True):
-                    
-                    # 1. Guardar en Supabase
+                    # Guardar en base de datos
                     supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", data).execute()
                     
-                    # 2. Enviar actualización al teléfono
+                    # Notificar a los teléfonos
                     if serial_del_pase:
                         with st.spinner("Mandando actualización al celular del jugador..."):
                             exito_saas, mensaje_error = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo)
@@ -102,7 +95,7 @@ if foto is not None:
                         else:
                             st.warning(f"Sello guardado ({nuevo_saldo}/10), pero falló la notificación Push.")
                     else:
-                        st.warning(f"Sello guardado ({nuevo_saldo}/10). Este cliente tiene un pase viejo, no se pudo actualizar su teléfono.")
+                        st.warning(f"Sello guardado ({nuevo_saldo}/10). Este cliente tiene un pase viejo.")
                         
             else:
                 st.error("El código no corresponde a ningún jugador registrado.")
