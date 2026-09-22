@@ -15,9 +15,8 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET (CORREGIDA AL 100%) ---
+# --- 3. FUNCIÓN DE WALLETWALLET PARA GENERAR TARJETA ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
-    # Endpoint oficial verificado de WalletWallet
     url_api = "https://api.walletwallet.dev/api/passes"
     
     headers = {
@@ -26,22 +25,35 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     }
     
     payload = {
+        "style": "storeCard",            
+        "backgroundColor": "#1E1E1E",    
+        "foregroundColor": "#C5A059",    
+        "labelColor": "#FFFFFF",         
+        "organizationName": "Marca Pádel Premier Club",
+        "logoText": "Marca Pádel Premier",
+        "description": "Tarjeta de Lealtad",
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "QR",
-        "barcodeAltText": "Muestra este código en recepción",
-        "logoText": "Marca Pádel Premier",
-        "organizationName": "Marca Pádel Premier Club",
-        "colorPreset": "dark",
+        "barcodeAltText": "Muestra en recepción para sumar sello",
         "primaryFields": [
             {
+                "key": "jugador",
                 "label": "JUGADOR",
                 "value": nombre_cliente
             }
         ],
         "secondaryFields": [
             {
+                "key": "sellos",
                 "label": "SELLOS",
                 "value": "0 / 10"
+            }
+        ],
+        "auxiliaryFields": [
+            {
+                "key": "recompensa",
+                "label": "PREMIO AL LLENAR",
+                "value": "1 Renta Gratis 🎾"
             }
         ]
     }
@@ -56,9 +68,9 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         if enlace_descarga:
             return enlace_descarga, serial_number
         else:
-            raise Exception(f"WalletWallet no devolvió shareUrl. Respuesta: {datos}")
+            raise Exception(f"Falta shareUrl en la respuesta. Datos: {datos}")
     else:
-        raise Exception(f"Error {respuesta.status_code} de WalletWallet: {respuesta.text}")
+        raise Exception(f"Error {respuesta.status_code}: {respuesta.text}")
 
 # --- 4. FUNCIÓN PARA EL BOTÓN VISUAL ---
 def mostrar_boton_descarga(enlace):
@@ -121,11 +133,9 @@ with tab_nuevo:
                     else:
                         cliente_uuid = str(uuid.uuid4())
                         
-                        # 1. Crear el pase en WalletWallet primero
-                        with st.spinner("Creando tu tarjeta digital con Apple y Google..."):
+                        with st.spinner("Creando tu diseño y conectando con Apple/Google..."):
                             wallet_link, serial_number = generar_tarjeta_walletwallet(cliente_uuid, nombre)
                         
-                        # 2. Guardar en Supabase (incluyendo el serial_number en wallet_object_id)
                         datos_insertar = {
                             "id": cliente_uuid,
                             "nombre_completo": nombre,
@@ -140,7 +150,7 @@ with tab_nuevo:
                         }
                         supabase.table("clientes_wallet").insert(datos_insertar).execute()
                         
-                        st.success(f"¡Bienvenido al club, {nombre}! Descarga tu tarjeta aquí:")
+                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta negra y dorada está lista:")
                         mostrar_boton_descarga(wallet_link)
                         
                 except Exception as e:
@@ -169,7 +179,6 @@ with tab_recuperar:
                         nombre_guardado = usuario["nombre_completo"]
                         serial = usuario.get("wallet_object_id")
                         
-                        # Si tenemos el serial de WalletWallet, consultamos su link
                         if serial:
                             url_recuperar = f"https://api.walletwallet.dev/api/passes/{serial}"
                             headers = {"Authorization": f"Bearer {st.secrets['WALLETWALLET_API_KEY']}"}
@@ -182,7 +191,7 @@ with tab_recuperar:
                             else:
                                 st.error("No se pudo obtener el enlace del servidor. Intenta de nuevo.")
                         else:
-                            st.info("Este registro es anterior. Por favor contacta a recepción para actualizar tu tarjeta.")
+                            st.info("Este registro es anterior al nuevo diseño. Acude a recepción para migrarte.")
                     else:
                         st.error("❌ No encontramos ninguna tarjeta registrada con ese correo.")
                 except Exception as e:
