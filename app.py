@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET (USANDO TU PLANTILLA PREMIUM) ---
+# --- 3. FUNCIÓN DE WALLETWALLET (USANDO TU PLANTILLA OFICIAL) ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,11 +24,12 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # ESTE ES EL PAYLOAD QUE CONECTA CON TU DISEÑO EN LA WEB
+    # Usamos tu Template ID verificado
     payload = {
-        "templateId": "PEGA_AQUI_TU_TEMPLATE_ID", # <--- ¡CÁMBIALO POR TU ID DE WALLETWALLET!
+        "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "QR",
+        "barcodeAltText": "Muestra en recepción para sumar sello",
         "dynamicData": {
             "jugador": nombre_cliente,
             "sellos": "0 / 10"
@@ -86,7 +87,7 @@ with tab_nuevo:
     with st.form("registro_form"):
         nombre = st.text_input("Nombre completo *")
         correo = st.text_input("Correo electrónico *")
-        telefono = st.text_input("Teléfono (Opcional)")
+        telefono = st.text_input("Teléfono *")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -110,7 +111,7 @@ with tab_nuevo:
                     else:
                         cliente_uuid = str(uuid.uuid4())
                         
-                        with st.spinner("Creando tu diseño y conectando con Apple/Google..."):
+                        with st.spinner("Generando tu tarjeta personalizada..."):
                             wallet_link, serial_number = generar_tarjeta_walletwallet(cliente_uuid, nombre)
                         
                         datos_insertar = {
@@ -127,7 +128,7 @@ with tab_nuevo:
                         }
                         supabase.table("clientes_wallet").insert(datos_insertar).execute()
                         
-                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta está lista:")
+                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta con el diseño oficial está lista:")
                         mostrar_boton_descarga(wallet_link)
                         
                 except Exception as e:
@@ -168,7 +169,7 @@ with tab_recuperar:
                             else:
                                 st.error("No se pudo obtener el enlace del servidor. Intenta de nuevo.")
                         else:
-                            st.info("Este registro es anterior al nuevo diseño. Acude a recepción para migrarte.")
+                            st.info("Este registro es anterior. Acude a recepción para actualizar tu tarjeta.")
                     else:
                         st.error("❌ No encontramos ninguna tarjeta registrada con ese correo.")
                 except Exception as e:
