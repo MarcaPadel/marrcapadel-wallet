@@ -1,6 +1,7 @@
 streamlit
 supabase
-opencv-python-headless
-numpy
-Pillow
 requests
+pillow
+numpy
+opencv-python-headless
+zxing-cpp
