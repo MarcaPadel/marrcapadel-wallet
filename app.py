@@ -24,30 +24,15 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
+    # PAYLOAD LIMPIO: 
+    # Solo mandamos el ID de tu plantilla y las 3 variables que cambian por usuario.
+    # El servidor de WalletWallet usará tu diseño visual automáticamente.
     payload = {
         "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
-        "barcodeValue": str(cliente_uuid),
-        "barcodeFormat": "QR",
-        "barcodeAltText": "Muestra este código en recepción",
-        "logoText": "Marca Pádel Premier",
+        "barcodeValue": str(cliente_uuid), # Sobreescribe el "MEMBER-123" de tu diseño
         "dynamicData": {
             "jugador": nombre_cliente,
-            "sellos": "0 / 10",
-            "title": "Tarjeta de Lealtad",
-            "primaryFields": [
-                {
-                    "key": "jugador",
-                    "label": "JUGADOR",
-                    "value": nombre_cliente
-                }
-            ],
-            "secondaryFields": [
-                {
-                    "key": "sellos",
-                    "label": "SELLOS",
-                    "value": "0 / 10"
-                }
-            ]
+            "sellos": "0 / 10"
         }
     }
     
@@ -63,7 +48,8 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         else:
             raise Exception(f"Falta shareUrl en la respuesta. Datos: {datos}")
     else:
-        raise Exception(f"Error {respuesta.status_code}: {respuesta.text}")
+        # Imprimir la respuesta exacta de WalletWallet en rojo para debugguear
+        raise Exception(f"Error {respuesta.status_code} de WalletWallet: {respuesta.text}")
 
 # --- 4. FUNCIÓN PARA EL BOTÓN VISUAL ---
 def mostrar_boton_descarga(enlace):
