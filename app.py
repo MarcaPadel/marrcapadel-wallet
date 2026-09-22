@@ -29,6 +29,7 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "Aztec",
+        "logoText": "Marca Pádel Premier Club",
         "heroImage": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
         "dynamicData": {
             "jugador": nombre_cliente,
