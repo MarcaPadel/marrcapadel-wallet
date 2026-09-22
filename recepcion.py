@@ -3,13 +3,11 @@ from supabase import create_client, Client
 import cv2
 import numpy as np
 from PIL import Image
-import json
 import requests
-from google.oauth2 import service_account
-import google.auth.transport.requests
 
 st.set_page_config(page_title="Recepción | Marca Pádel", page_icon="📲", layout="centered")
 
+# --- 1. CONEXIÓN A SUPABASE ---
 try:
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_KEY"]
@@ -17,53 +15,34 @@ try:
 except Exception as e:
     st.error("Error de configuración de Supabase.")
 
-# --- NUEVA FUNCIÓN PARA AVISAR A GOOGLE (CON DETECTOR DE ERRORES) ---
-def actualizar_tarjeta_google(object_id, nuevos_sellos):
+# --- 2. NUEVA FUNCIÓN PARA AVISAR A WALLETWALLET (ACTUALIZAR SELLOS) ---
+def actualizar_tarjeta_saas(cliente_uuid, nuevos_sellos):
     try:
-        cred_dict = json.loads(st.secrets["credenciales_google"])
-        if "\\n" in cred_dict["private_key"]:
-            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-            
-        credentials = service_account.Credentials.from_service_account_info(
-            cred_dict,
-            scopes=['https://www.googleapis.com/auth/wallet_object.issuer']
-        )
-        
-        request = google.auth.transport.requests.Request()
-        credentials.refresh(request)
-        token = credentials.token
-        
-        url = f"https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/{object_id}"
-        nueva_imagen = f"https://cfsrslqamambagahfzzv.supabase.co/storage/v1/object/public/wallet-assets/sellos_{nuevos_sellos}.png"
+        # En la API de WalletWallet, envías un PUT al endpoint pasándole el barcode o ID del pase
+        # Asegúrate de revisar su documentación exacta, generalmente es así:
+        url_api = f"https://api.walletwallet.dev/v1/passes/{cliente_uuid}" 
         
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {st.secrets['WALLETWALLET_API_KEY']}",
             "Content-Type": "application/json"
         }
         
+        # Solo necesitas enviar la sección que cambia. 
+        # En este caso, queremos actualizar el secondaryField de 'sellos'
         payload = {
-            "heroImage": {
-                "sourceUri": {
-                    "uri": nueva_imagen
-                },
-                "contentDescription": {
-                    "defaultValue": {
-                        "language": "es-MX",
-                        "value": f"Planilla con {nuevos_sellos} sellos"
-                    }
+            "secondaryFields": [
+                {
+                    "key": "sellos",
+                    "label": "SELLOS (Renta de Pista)",
+                    "value": f"{nuevos_sellos} / 10" 
                 }
-            },
-            "loyaltyPoints": {
-                "label": "Sellos",
-                "balance": {
-                    "string": f"{nuevos_sellos} / 10"
-                }
-            }
+            ]
         }
         
-        respuesta = requests.patch(url, headers=headers, json=payload)
+        # OJO: Es requests.put para actualizar (Push notification)
+        respuesta = requests.put(url_api, headers=headers, json=payload)
         
-        if respuesta.status_code == 200:
+        if respuesta.status_code in [200, 201]:
             return True, "OK"
         else:
             return False, f"Error {respuesta.status_code}: {respuesta.text}"
@@ -71,7 +50,7 @@ def actualizar_tarjeta_google(object_id, nuevos_sellos):
     except Exception as e:
         return False, str(e)
 
-# --- INTERFAZ DE ESCÁNER ---
+# --- 3. INTERFAZ DE ESCÁNER ---
 st.title("📲 Escáner de Visitas")
 st.write("Toma una foto del código QR del jugador para sumar un sello.")
 
@@ -88,6 +67,7 @@ if foto is not None:
     if data:
         st.success("✅ ¡Código QR leído!")
         try:
+            # Tu código QR contiene el UUID (que es el ID en tu tabla)
             respuesta = supabase.table("clientes_wallet").select("*").eq("id", data).execute()
             cliente = respuesta.data
             
@@ -95,7 +75,6 @@ if foto is not None:
                 jugador = cliente[0]
                 nombre_jugador = jugador['nombre_completo']
                 saldo_actual = int(jugador.get('saldo') or 0)
-                wallet_object_id = jugador['wallet_object_id']
                 
                 st.markdown("---")
                 st.subheader(f"🎾 {nombre_jugador}")
@@ -105,28 +84,28 @@ if foto is not None:
                 if saldo_actual < 10:
                     texto_boton = "➕ Sumar 1 Sello"
                     nuevo_saldo = saldo_actual + 1
-                    mensaje_exito = f"¡Listo! {nombre_jugador} ahora tiene {nuevo_saldo} sellos y su Google Wallet ha sido actualizado."
+                    mensaje_exito = f"¡Listo! {nombre_jugador} ahora tiene {nuevo_saldo} sellos. Su tarjeta se actualizó en el teléfono."
                 else:
-                    # Si ya tiene 10 (o por error más de 10), el siguiente escaneo reinicia la tarjeta a 1
                     st.info("🎉 Esta tarjeta ya estaba llena. Al escanear ahora, se canjeará el premio y se reiniciará el conteo.")
-                    texto_boton = "🎁 Canjear Premio y Reiniciar (Sumar 1er Sello)"
+                    texto_boton = "🎁 Canjear Premio y Reiniciar"
                     nuevo_saldo = 1
-                    mensaje_exito = f"¡Premio canjeado! {nombre_jugador} ha iniciado una nueva tarjeta con {nuevo_saldo} sello."
+                    mensaje_exito = f"¡Premio canjeado! {nombre_jugador} inició una nueva tarjeta con {nuevo_saldo} sello."
 
                 if st.button(texto_boton, type="primary", use_container_width=True):
                     
-                    # 1. Actualizar Supabase
+                    # 1. Actualizar tu base de datos (Sigue igual)
                     supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", data).execute()
                     
-                    # 2. AVISAR A GOOGLE WALLET
-                    with st.spinner("Actualizando pase en el celular del jugador..."):
-                        exito_google, mensaje_error = actualizar_tarjeta_google(wallet_object_id, nuevo_saldo)
+                    # 2. AVISAR AL SAAS (Manda la señal a Apple y Google)
+                    with st.spinner("Mandando notificación push al teléfono del jugador..."):
+                        # 'data' es el cliente_uuid extraído del código QR
+                        exito_saas, mensaje_error = actualizar_tarjeta_saas(data, nuevo_saldo)
                     
-                    if exito_google:
+                    if exito_saas:
                         st.success(mensaje_exito)
                     else:
-                        st.warning(f"Sello guardado en base de datos ({nuevo_saldo}/10), pero hubo un error actualizando Google Wallet.")
-                        st.error(f"Detalle técnico para Google: {mensaje_error}")
+                        st.warning(f"Se guardó el sello en tu base de datos ({nuevo_saldo}/10), pero falló la actualización al teléfono.")
+                        st.error(f"Detalle técnico de WalletWallet: {mensaje_error}")
                         
             else:
                 st.error("El código no corresponde a ningún jugador registrado.")
