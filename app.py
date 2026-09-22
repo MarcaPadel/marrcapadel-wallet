@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET (USANDO TU PLANTILLA OFICIAL) ---
+# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,11 +24,12 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # PAYLOAD DEFINITIVO CON AZTEC
+    # Payload limpio con Template, Aztec e Imagen Inicial (Sello 0)
     payload = {
         "templateId": "4bb35efb-f273-45ca-b925-1dee46d8cdf4",
         "barcodeValue": str(cliente_uuid),
-        "barcodeFormat": "Aztec",  # <--- Agregamos esto explícitamente como Aztec
+        "barcodeFormat": "Aztec",
+        "heroImage": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
         "dynamicData": {
             "jugador": nombre_cliente,
             "sellos": "0 / 10"
@@ -86,7 +87,7 @@ with tab_nuevo:
     with st.form("registro_form"):
         nombre = st.text_input("Nombre completo *")
         correo = st.text_input("Correo electrónico *")
-        telefono = st.text_input("Teléfono *")
+        telefono = st.text_input("Teléfono (Opcional)")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -127,7 +128,7 @@ with tab_nuevo:
                         }
                         supabase.table("clientes_wallet").insert(datos_insertar).execute()
                         
-                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta con el diseño oficial está lista:")
+                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta está lista:")
                         mostrar_boton_descarga(wallet_link)
                         
                 except Exception as e:
