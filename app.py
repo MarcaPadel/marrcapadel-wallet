@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET PARA GENERAR TARJETA ---
+# --- 3. FUNCIÓN DE WALLETWALLET (USANDO TU PLANTILLA PREMIUM) ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,38 +24,15 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
+    # ESTE ES EL PAYLOAD QUE CONECTA CON TU DISEÑO EN LA WEB
     payload = {
-        "style": "storeCard",            
-        "backgroundColor": "#1E1E1E",    
-        "foregroundColor": "#C5A059",    
-        "labelColor": "#FFFFFF",         
-        "organizationName": "Marca Pádel Premier Club",
-        "logoText": "Marca Pádel Premier",
-        "description": "Tarjeta de Lealtad",
+        "templateId": "PEGA_AQUI_TU_TEMPLATE_ID", # <--- ¡CÁMBIALO POR TU ID DE WALLETWALLET!
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "QR",
-        "barcodeAltText": "Muestra en recepción para sumar sello",
-        "primaryFields": [
-            {
-                "key": "jugador",
-                "label": "JUGADOR",
-                "value": nombre_cliente
-            }
-        ],
-        "secondaryFields": [
-            {
-                "key": "sellos",
-                "label": "SELLOS",
-                "value": "0 / 10"
-            }
-        ],
-        "auxiliaryFields": [
-            {
-                "key": "recompensa",
-                "label": "PREMIO AL LLENAR",
-                "value": "1 Renta Gratis 🎾"
-            }
-        ]
+        "dynamicData": {
+            "jugador": nombre_cliente,
+            "sellos": "0 / 10"
+        }
     }
     
     respuesta = requests.post(url_api, headers=headers, json=payload)
@@ -150,7 +127,7 @@ with tab_nuevo:
                         }
                         supabase.table("clientes_wallet").insert(datos_insertar).execute()
                         
-                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta negra y dorada está lista:")
+                        st.success(f"¡Bienvenido, {nombre}! Tu tarjeta está lista:")
                         mostrar_boton_descarga(wallet_link)
                         
                 except Exception as e:
