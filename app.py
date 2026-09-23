@@ -112,7 +112,7 @@ with tab_nuevo:
     with st.form("registro_form"):
         nombre = st.text_input("Nombre completo *")
         correo = st.text_input("Correo electrónico *")
-        telefono = st.text_input("Teléfono (Opcional)")
+        telefono = st.text_input("Teléfono *")
         
         col1, col2 = st.columns(2)
         with col1:
