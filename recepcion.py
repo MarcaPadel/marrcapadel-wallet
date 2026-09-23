@@ -19,7 +19,7 @@ except Exception as e:
 if 'jugador_buscado' not in st.session_state:
     st.session_state['jugador_buscado'] = None
 
-# --- 2. FUNCIÓN PARA ACTUALIZAR TARJETA (ENVÍO COMPLETO PARA EVITAR BORRADOS) ---
+# --- 2. FUNCIÓN PARA ACTUALIZAR TARJETA (MANTENIENDO DISEÑO Y GPS) ---
 def actualizar_tarjeta_saas(serial_number, nuevos_sellos, cliente_id, nombre_jugador):
     try:
         url_api = f"https://api.walletwallet.dev/api/passes/{serial_number}" 
@@ -31,7 +31,7 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos, cliente_id, nombre_jug
         
         url_nueva_imagen = f"https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_{nuevos_sellos}.png?raw=true"
         
-        # PAYLOAD COMPLETO: Obligamos a WalletWallet a recordar el diseño, el logo, el nombre y el código Aztec
+        # PAYLOAD COMPLETO: Obligamos a WalletWallet a recordar el diseño, el GPS y el código Aztec
         payload = {
             "style": "storeCard",          
             "backgroundColor": "#171717",  
@@ -43,10 +43,18 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos, cliente_id, nombre_jug
             "description": "Tarjeta de Lealtad",
             "stripURL": url_nueva_imagen,
             
-            # ¡Aquí le recordamos que lleva un código Aztec!
             "barcodeValue": str(cliente_id),
             "barcodeFormat": "Aztec",
             "barcodeAltText": "Muestra este código en recepción",
+            
+            # MANTENEMOS EL GPS ACTIVO EN LA ACTUALIZACIÓN
+            "locations": [
+                {
+                    "latitude": 16.768463817721518,
+                    "longitude": -93.17667625845276,
+                    "relevantText": "¡Bienvenido a Marca Pádel Premier Club!"
+                }
+            ],
             
             "primaryFields": [
                 {
@@ -76,16 +84,13 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos, cliente_id, nombre_jug
 
 # --- 3. FUNCIÓN AUXILIAR PARA PROCESAR EL CAMBIO ---
 def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_jugador, accion):
-    # 1. Actualizar DB
     supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", cliente_id).execute()
     
     if st.session_state['jugador_buscado']:
         st.session_state['jugador_buscado']['saldo'] = nuevo_saldo
     
-    # 2. Actualizar Tarjeta Móvil
     if serial_del_pase:
         with st.spinner("Actualizando celular..."):
-            # Ahora le pasamos el ID y el Nombre para que arme el payload completo
             exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo, cliente_id, nombre_jugador)
             
         if exito_saas:
