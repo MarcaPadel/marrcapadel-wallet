@@ -16,6 +16,10 @@ try:
 except Exception as e:
     st.error("Error de configuración de Supabase.")
 
+# Inicializar memoria para la búsqueda manual
+if 'jugador_buscado' not in st.session_state:
+    st.session_state['jugador_buscado'] = None
+
 # --- 2. FUNCIÓN PARA ACTUALIZAR TARJETA (SELLOS Y FOTOS) ---
 def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
     try:
@@ -26,14 +30,17 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
             "Content-Type": "application/json"
         }
         
-        # Enlace real de la imagen según el número de sellos
         url_nueva_imagen = f"https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_{nuevos_sellos}.png?raw=true"
         
         payload = {
-            "heroImage": url_nueva_imagen,
-            "dynamicData": {
-                "sellos": f"{nuevos_sellos} / 10" 
-            }
+            "stripURL": url_nueva_imagen,
+            "secondaryFields": [
+                {
+                    "key": "sellos",
+                    "label": "SELLOS",
+                    "value": f"{nuevos_sellos} / 10"
+                }
+            ]
         }
         
         respuesta = requests.put(url_api, headers=headers, json=payload)
@@ -46,7 +53,30 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
     except Exception as e:
         return False, str(e)
 
-# --- 3. LÓGICA COMPARTIDA DE PERFIL Y BOTONES ---
+# --- 3. FUNCIÓN AUXILIAR PARA PROCESAR EL CAMBIO ---
+def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_jugador, accion):
+    # 1. Actualizar DB
+    supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", cliente_id).execute()
+    
+    # Actualizar la memoria para que la pantalla refleje el nuevo saldo inmediatamente
+    if st.session_state['jugador_buscado']:
+        st.session_state['jugador_buscado']['saldo'] = nuevo_saldo
+    
+    # 2. Actualizar Tarjeta Móvil
+    if serial_del_pase:
+        with st.spinner("Actualizando celular..."):
+            exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo)
+        if exito_saas:
+            if accion == "canjeado":
+                st.success(f"¡Premio entregado! La tarjeta de {nombre_jugador} se reinició a 0 sellos.")
+            else:
+                st.success(f"Sello {accion} correctamente. {nombre_jugador} ahora tiene {nuevo_saldo} sellos.")
+        else:
+            st.warning(f"Se guardó en base de datos, pero falló la actualización del celular: {msj}")
+    else:
+        st.info(f"Sello {accion} guardado. Cliente sin tarjeta digital vinculada.")
+
+# --- 4. LÓGICA COMPARTIDA DE PERFIL Y BOTONES ---
 def mostrar_perfil_y_controles(jugador):
     cliente_id = jugador['id']
     nombre_jugador = jugador['nombre_completo']
@@ -86,25 +116,6 @@ def mostrar_perfil_y_controles(jugador):
         else:
             if st.button("🎁 Canjear Premio y Reiniciar", key=f"canjear_{cliente_id}", type="primary", use_container_width=True):
                 procesar_actualizacion(cliente_id, serial_del_pase, 0, nombre_jugador, "canjeado")
-
-# --- 4. FUNCIÓN AUXILIAR PARA PROCESAR EL CAMBIO ---
-def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_jugador, accion):
-    # 1. Actualizar DB
-    supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", cliente_id).execute()
-    
-    # 2. Actualizar Tarjeta Móvil
-    if serial_del_pase:
-        with st.spinner("Actualizando celular..."):
-            exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo)
-        if exito_saas:
-            if accion == "canjeado":
-                st.success(f"¡Premio entregado! La tarjeta de {nombre_jugador} se reinició a 0 sellos.")
-            else:
-                st.success(f"Sello {accion} correctamente. {nombre_jugador} ahora tiene {nuevo_saldo} sellos.")
-        else:
-            st.warning(f"Se guardó en base de datos, pero falló la actualización del celular: {msj}")
-    else:
-        st.info(f"Sello {accion} guardado. Cliente sin tarjeta digital vinculada.")
 
 
 # ==========================================
@@ -147,22 +158,36 @@ with tab_escaner:
 with tab_manual:
     st.write("¿El cliente olvidó su celular? Búscalo por nombre o correo.")
     
-    termino_busqueda = st.text_input("Ingresa el nombre o correo del jugador", placeholder="Ej. Juan Pérez o juan@email.com")
+    col_busqueda, col_boton = st.columns([3, 1])
+    with col_busqueda:
+        termino_busqueda = st.text_input("Nombre o correo", placeholder="Ej. Juan Pérez", label_visibility="collapsed")
+    with col_boton:
+        btn_buscar = st.button("Buscar", use_container_width=True)
     
-    if st.button("Buscar Jugador", use_container_width=True):
+    if btn_buscar:
         if termino_busqueda:
             try:
-                # Buscamos coincidencias que contengan el texto en el nombre o en el correo
                 respuesta = supabase.table("clientes_wallet").select("*").or_(f"nombre_completo.ilike.%{termino_busqueda}%,email.ilike.%{termino_busqueda}%").execute()
                 resultados_busqueda = respuesta.data
                 
                 if len(resultados_busqueda) > 0:
-                    st.success(f"Se encontraron {len(resultados_busqueda)} coincidencias:")
-                    for jugador_encontrado in resultados_busqueda:
-                        mostrar_perfil_y_controles(jugador_encontrado)
+                    # Guardamos al primer jugador encontrado en la memoria de la sesión
+                    st.session_state['jugador_buscado'] = resultados_busqueda[0]
+                    if len(resultados_busqueda) > 1:
+                        st.info(f"Se encontraron múltiples resultados, mostrando el primero: {resultados_busqueda[0]['nombre_completo']}")
                 else:
-                    st.warning("No se encontró ningún jugador con ese nombre o correo.")
+                    st.session_state['jugador_buscado'] = None
+                    st.warning("No se encontró ningún jugador.")
             except Exception as e:
                 st.error(f"Error en la búsqueda: {e}")
         else:
             st.warning("Por favor ingresa un nombre o correo para buscar.")
+            
+    # Si hay un jugador guardado en memoria, mostrar sus controles siempre
+    if st.session_state['jugador_buscado']:
+        mostrar_perfil_y_controles(st.session_state['jugador_buscado'])
+        
+        # Botón para limpiar la búsqueda
+        if st.button("Limpiar búsqueda", key="limpiar_busqueda"):
+            st.session_state['jugador_buscado'] = None
+            st.rerun()
