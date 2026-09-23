@@ -16,12 +16,11 @@ try:
 except Exception as e:
     st.error("Error de configuración de Supabase.")
 
-# Inicializar memoria para la búsqueda manual (Soluciona el problema de los botones)
 if 'jugador_buscado' not in st.session_state:
     st.session_state['jugador_buscado'] = None
 
-# --- 2. FUNCIÓN PARA ACTUALIZAR TARJETA (SELLOS Y FOTOS) ---
-def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
+# --- 2. FUNCIÓN PARA ACTUALIZAR TARJETA (ENVÍO COMPLETO PARA EVITAR BORRADOS) ---
+def actualizar_tarjeta_saas(serial_number, nuevos_sellos, cliente_id, nombre_jugador):
     try:
         url_api = f"https://api.walletwallet.dev/api/passes/{serial_number}" 
         
@@ -32,10 +31,30 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
         
         url_nueva_imagen = f"https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_{nuevos_sellos}.png?raw=true"
         
-        # EL PAYLOAD CORREGIDO QUE MATA EL ERROR 400 EN RECEPCIÓN
+        # PAYLOAD COMPLETO: Obligamos a WalletWallet a recordar el diseño, el logo, el nombre y el código Aztec
         payload = {
-            "logoText": "Marca Pádel",  # Obligatorio para que la API no rechace la actualización
+            "style": "storeCard",          
+            "backgroundColor": "#171717",  
+            "foregroundColor": "#C5A059",  
+            "labelColor": "#FFFFFF",       
+            "logoText": "Marca Pádel",
+            "logoURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/logo.png?raw=true",
+            "organizationName": "Marca Pádel Premier Club",
+            "description": "Tarjeta de Lealtad",
             "stripURL": url_nueva_imagen,
+            
+            # ¡Aquí le recordamos que lleva un código Aztec!
+            "barcodeValue": str(cliente_id),
+            "barcodeFormat": "Aztec",
+            "barcodeAltText": "Muestra este código en recepción",
+            
+            "primaryFields": [
+                {
+                    "key": "jugador",
+                    "label": "JUGADOR",
+                    "value": nombre_jugador
+                }
+            ],
             "secondaryFields": [
                 {
                     "key": "sellos",
@@ -57,17 +76,18 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
 
 # --- 3. FUNCIÓN AUXILIAR PARA PROCESAR EL CAMBIO ---
 def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_jugador, accion):
-    # 1. Actualizar base de datos
+    # 1. Actualizar DB
     supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", cliente_id).execute()
     
-    # Actualizar la memoria para que la pantalla refleje el nuevo saldo inmediatamente
     if st.session_state['jugador_buscado']:
         st.session_state['jugador_buscado']['saldo'] = nuevo_saldo
     
     # 2. Actualizar Tarjeta Móvil
     if serial_del_pase:
-        with st.spinner("Actualizando la tarjeta en el celular..."):
-            exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo)
+        with st.spinner("Actualizando celular..."):
+            # Ahora le pasamos el ID y el Nombre para que arme el payload completo
+            exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo, cliente_id, nombre_jugador)
+            
         if exito_saas:
             if accion == "canjeado":
                 st.success(f"¡Premio entregado! La tarjeta de {nombre_jugador} se reinició a 0 sellos.")
@@ -95,12 +115,10 @@ def mostrar_perfil_y_controles(jugador):
     with col_info2:
         st.write(f"**Sellos:** {saldo_actual} / 10")
         
-    st.write("") # Espacio
+    st.write("") 
     
-    # --- CONTROLES DE SELLOS ---
     col1, col2 = st.columns(2)
     
-    # BOTÓN: RESTAR SELLO
     with col1:
         if st.button("➖ Restar 1 (Corregir)", key=f"restar_{cliente_id}", use_container_width=True):
             if saldo_actual > 0:
@@ -109,7 +127,6 @@ def mostrar_perfil_y_controles(jugador):
             else:
                 st.warning("El jugador tiene 0 sellos, no se puede restar más.")
                 
-    # BOTÓN: SUMAR / CANJEAR
     with col2:
         if saldo_actual < 10:
             if st.button("➕ Sumar 1 Sello", key=f"sumar_{cliente_id}", type="primary", use_container_width=True):
@@ -119,7 +136,6 @@ def mostrar_perfil_y_controles(jugador):
             if st.button("🎁 Canjear Premio y Reiniciar", key=f"canjear_{cliente_id}", type="primary", use_container_width=True):
                 procesar_actualizacion(cliente_id, serial_del_pase, 0, nombre_jugador, "canjeado")
 
-
 # ==========================================
 # INTERFAZ PRINCIPAL
 # ==========================================
@@ -127,7 +143,6 @@ st.title("Centro de Recepción")
 
 tab_escaner, tab_manual = st.tabs(["📷 Escanear Tarjeta", "🔍 Búsqueda Manual"])
 
-# --- PESTAÑA 1: ESCÁNER ---
 with tab_escaner:
     st.write("Usa la cámara para leer el código Aztec o QR de la tarjeta del jugador.")
     foto = st.camera_input("Cámara de Recepción", key="camara_principal")
@@ -156,7 +171,6 @@ with tab_escaner:
         else:
             st.warning("No se detectó ningún código. Intenta acercar la pantalla.")
 
-# --- PESTAÑA 2: BÚSQUEDA MANUAL (PLAN B) ---
 with tab_manual:
     st.write("¿El cliente olvidó su celular? Búscalo por nombre o correo.")
     
@@ -173,7 +187,6 @@ with tab_manual:
                 resultados_busqueda = respuesta.data
                 
                 if len(resultados_busqueda) > 0:
-                    # Guardamos al primer jugador encontrado en la memoria de la sesión
                     st.session_state['jugador_buscado'] = resultados_busqueda[0]
                     if len(resultados_busqueda) > 1:
                         st.info(f"Se encontraron múltiples resultados, mostrando el primero: {resultados_busqueda[0]['nombre_completo']}")
@@ -185,11 +198,9 @@ with tab_manual:
         else:
             st.warning("Por favor ingresa un nombre o correo para buscar.")
             
-    # Si hay un jugador guardado en memoria, mostrar sus controles siempre
     if st.session_state['jugador_buscado']:
         mostrar_perfil_y_controles(st.session_state['jugador_buscado'])
         
-        # Botón para limpiar la búsqueda
         if st.button("Limpiar búsqueda", key="limpiar_busqueda"):
             st.session_state['jugador_buscado'] = None
             st.rerun()
