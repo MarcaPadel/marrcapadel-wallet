@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA (DISEÑO EXPLÍCITO CON LOGO) ---
+# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA (DISEÑO + GPS) ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,7 +24,7 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # PAYLOAD COMPLETO DE DISEÑO
+    # PAYLOAD COMPLETO
     payload = {
         "style": "storeCard",          
         "backgroundColor": "#171717",  
@@ -32,18 +32,24 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "labelColor": "#FFFFFF",       
         
         "logoText": "Marca Pádel",
-        # Aquí está tu logo oficial:
         "logoURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/logo.png?raw=true",
-        
         "organizationName": "Marca Pádel Premier Club",
         "description": "Tarjeta de Lealtad",
         
-        # Imagen ancha de fondo (sello 0):
         "stripURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
         
         "barcodeValue": str(cliente_uuid),
         "barcodeFormat": "Aztec",
         "barcodeAltText": "Muestra este código en recepción",
+        
+        # UBICACIÓN EXACTA DEL CLUB
+        "locations": [
+            {
+                "latitude": 16.768463817721518,
+                "longitude": -93.17667625845276,
+                "relevantText": "¡Bienvenido a Marca Pádel Premier Club!"
+            }
+        ],
         
         "primaryFields": [
             {
@@ -112,7 +118,7 @@ with tab_nuevo:
     with st.form("registro_form"):
         nombre = st.text_input("Nombre completo *")
         correo = st.text_input("Correo electrónico *")
-        telefono = st.text_input("Teléfono *")
+        telefono = st.text_input("Teléfono (Opcional)")
         
         col1, col2 = st.columns(2)
         with col1:
