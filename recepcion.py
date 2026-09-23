@@ -16,7 +16,7 @@ try:
 except Exception as e:
     st.error("Error de configuración de Supabase.")
 
-# Inicializar memoria para la búsqueda manual
+# Inicializar memoria para la búsqueda manual (Soluciona el problema de los botones)
 if 'jugador_buscado' not in st.session_state:
     st.session_state['jugador_buscado'] = None
 
@@ -32,7 +32,9 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
         
         url_nueva_imagen = f"https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_{nuevos_sellos}.png?raw=true"
         
+        # EL PAYLOAD CORREGIDO QUE MATA EL ERROR 400 EN RECEPCIÓN
         payload = {
+            "logoText": "Marca Pádel",  # Obligatorio para que la API no rechace la actualización
             "stripURL": url_nueva_imagen,
             "secondaryFields": [
                 {
@@ -55,7 +57,7 @@ def actualizar_tarjeta_saas(serial_number, nuevos_sellos):
 
 # --- 3. FUNCIÓN AUXILIAR PARA PROCESAR EL CAMBIO ---
 def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_jugador, accion):
-    # 1. Actualizar DB
+    # 1. Actualizar base de datos
     supabase.table("clientes_wallet").update({"saldo": nuevo_saldo}).eq("id", cliente_id).execute()
     
     # Actualizar la memoria para que la pantalla refleje el nuevo saldo inmediatamente
@@ -64,7 +66,7 @@ def procesar_actualizacion(cliente_id, serial_del_pase, nuevo_saldo, nombre_juga
     
     # 2. Actualizar Tarjeta Móvil
     if serial_del_pase:
-        with st.spinner("Actualizando celular..."):
+        with st.spinner("Actualizando la tarjeta en el celular..."):
             exito_saas, msj = actualizar_tarjeta_saas(serial_del_pase, nuevo_saldo)
         if exito_saas:
             if accion == "canjeado":
@@ -177,7 +179,7 @@ with tab_manual:
                         st.info(f"Se encontraron múltiples resultados, mostrando el primero: {resultados_busqueda[0]['nombre_completo']}")
                 else:
                     st.session_state['jugador_buscado'] = None
-                    st.warning("No se encontró ningún jugador.")
+                    st.warning("No se encontró ningún jugador con esos datos.")
             except Exception as e:
                 st.error(f"Error en la búsqueda: {e}")
         else:
