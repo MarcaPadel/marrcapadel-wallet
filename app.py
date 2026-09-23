@@ -15,7 +15,7 @@ try:
 except Exception as e:
     st.error(f"Error conectando a la base de datos: {e}")
 
-# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA (DISEÑO EXPLÍCITO) ---
+# --- 3. FUNCIÓN DE WALLETWALLET DEFINITIVA (DISEÑO EXPLÍCITO CON LOGO) ---
 def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
     url_api = "https://api.walletwallet.dev/api/passes"
     
@@ -24,18 +24,21 @@ def generar_tarjeta_walletwallet(cliente_uuid, nombre_cliente):
         "Content-Type": "application/json"
     }
     
-    # PAYLOAD COMPLETO DE DISEÑO (Funciona para Apple y Google Wallet)
+    # PAYLOAD COMPLETO DE DISEÑO
     payload = {
-        "style": "storeCard",          # Formato oficial de tarjeta de lealtad
-        "backgroundColor": "#171717",  # Fondo oscuro
-        "foregroundColor": "#C5A059",  # Textos en dorado
-        "labelColor": "#FFFFFF",       # Títulos en blanco
+        "style": "storeCard",          
+        "backgroundColor": "#171717",  
+        "foregroundColor": "#C5A059",  
+        "labelColor": "#FFFFFF",       
         
         "logoText": "Marca Pádel",
+        # Aquí está tu logo oficial:
+        "logoURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/logo.png?raw=true",
+        
         "organizationName": "Marca Pádel Premier Club",
         "description": "Tarjeta de Lealtad",
         
-        # Imagen ancha de fondo (El inicio, sello 0)
+        # Imagen ancha de fondo (sello 0):
         "stripURL": "https://github.com/MarcaPadel/marrcapadel-wallet/blob/main/imagenes/sellos_0.png?raw=true",
         
         "barcodeValue": str(cliente_uuid),
